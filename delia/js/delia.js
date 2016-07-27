@@ -1,7 +1,13 @@
 var deliaTasks = (window.deliaTasks === undefined) ? {"tasks": {}} : window.deliaTasks;
 var deliaOpenTask = null;
 var deliaMouseData = {creating: false};
-var deliaDefaultIcon = "pencil";
+var deliaIcons = ["pencil", "wrench", "subway", "male", "female", "phone", "home", "camera", "book",
+        "car", "money", "users", "envelope-o"];
+var deliaChangeListeners = [];
+
+function deliaAddChangeListener(f) {
+    deliaChangeListeners.push(f);
+}
 
 function deliaNewId() {
     var taskIds = Object.keys(deliaTasks.tasks);
@@ -11,12 +17,18 @@ function deliaNewId() {
     return Math.max.apply(null, taskIds) + 1;
 }
 
+function deliaCallChangeListeners() {
+    for (var i = 0; i < deliaChangeListeners.length; ++i) {
+        deliaChangeListeners[i]();
+    }
+}
+
 function deliaRenderTask(box, taskId) {
     $("#delia-task-" + taskId).remove();
     var taskLayer = $(box).find(".delia-task-layer");
     var task = document.createElement("div");
     $(task).addClass("delia-task")
-        .addClass("fa fa-" + deliaTasks.tasks[taskId].icon)
+        .html("<span class=\"fa fa-" + deliaTasks.tasks[taskId].icon + "\"></span>")
         .attr("id", "delia-task-" + taskId)
         .draggable({
             axis: (deliaTasks.tasks[taskId].due == null) ? false : "y",
@@ -27,6 +39,7 @@ function deliaRenderTask(box, taskId) {
                     deliaTasks.tasks[taskId].xPosition = 100.0 *
                         (ev.pageX - $(taskLayer).offset().left) / $(taskLayer).width();
                 }
+                deliaCallChangeListeners();
             }
         })
         .click(function() {
@@ -102,7 +115,7 @@ function deliaRenderMain(box) {
                 var taskId = deliaNewId()
                 deliaTasks.tasks[taskId] = {
                     "name": "Untitled task",
-                    "icon": deliaDefaultIcon,
+                    "icon": deliaIcons[0],
                     "importance": 100.0 *
                             (1.0 - (ev.pageY - $(taskLayer).offset().top) / $(taskLayer).height()),
                     "xPosition": 100.0 * (ev.pageX - $(taskLayer).offset().left) / $(taskLayer).width(),
@@ -126,7 +139,10 @@ function deliaRenderDetail(box) {
     $(header).addClass("delia-header");
     var icon = document.createElement("div");
     $(icon).addClass("delia-icon")
-        .addClass("fa fa-" + deliaTasks.tasks[deliaOpenTask].icon);
+        .html("<span class=\"fa fa-" + deliaTasks.tasks[deliaOpenTask].icon + "\"></span>")
+        .click(function() {
+            deliaRenderIconSelector(box);
+        });
     var title = document.createElement("input");
     $(title).attr("type", "text")
         .addClass("delia-title")
@@ -142,6 +158,7 @@ function deliaRenderDetail(box) {
     $(save).addClass("delia-save")
         .html("<span class=\"fa fa-floppy-o\"></span>")
         .click(function() {
+            deliaCallChangeListeners();
             deliaRenderMain(box);
         });
     var finish = document.createElement("div");
@@ -149,10 +166,36 @@ function deliaRenderDetail(box) {
         .html("<span class=\"fa fa-flag-checkered\"></span>")
         .click(function() {
             delete deliaTasks.tasks[deliaOpenTask];
+            deliaCallChangeListeners();
             deliaRenderMain(box);
         });
     $(footer).append(save)
         .append(finish);
     $(box).append(header)
         .append(footer);
+}
+
+function deliaRenderIconSelector(box) {
+    $(box).html("");
+    var iconSelector = document.createElement("div");
+    var rowLen = 5;
+    $(iconSelector).addClass("delia-icon-selector");
+    for (var i = 0; i < deliaIcons.length; ++i) {
+        var icon = document.createElement("div");
+        $(icon).addClass("delia-icon")
+            .html("<span class=\"fa fa-" + deliaIcons[i] + "\"></span>")
+            .data("icon-name", deliaIcons[i])
+            .click(function() {
+                deliaTasks.tasks[deliaOpenTask].icon = $(this).data("icon-name");
+                deliaRenderDetail(box);
+            });
+        if (deliaIcons[i] == deliaTasks.tasks[deliaOpenTask].icon) {
+            $(icon).addClass("selected");
+        }
+        $(iconSelector).append(icon);
+        if (i % rowLen == rowLen - 1) {
+            $(iconSelector).append("<br />");
+        }
+    }
+    $(box).append(iconSelector);
 }
